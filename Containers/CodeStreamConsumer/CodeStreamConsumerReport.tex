@@ -10,6 +10,9 @@
 \geometry{margin=1in}
 \title{CodeStreamConsumer Evaluation Report}
 \author{Surja Gujja}
+\geometry{margin=1in}
+\title{CodeStreamConsumer Evaluation Report}
+\author{}
 \date{\today}
 \begin{document}
 \maketitle
@@ -133,5 +136,17 @@ These planned improvements will form the foundation for scaling beyond the Quali
 The current CodeStreamConsumer implementation successfully demonstrates end-to-end clone detection on moderate workloads, but ingesting the entire Qualitas Corpus exposes scaling ceilings in memory usage and synchronous processing.
 By externalising persistent state, pruning candidate comparisons, and introducing asynchronous execution paths, the service can evolve toward production-ready throughput without sacrificing detection accuracy.
 The accompanying archive, documentation, and dashboards provide a baseline for continued experimentation and coursework evaluation.
+The full container source distribution is provided as the archive \texttt{CodeStreamConsumer-new.zip} located at the repository root.
+
+\section*{Qualitas Corpus Processing}
+Processing the entire Qualitas Corpus currently exhausts the available resources because the consumer retains every processed file, chunk, and clone instance in memory. The synchronous detection loop also scans the full set of previously seen chunks for each new chunk, so both memory consumption and CPU time grow rapidly. Eventually the Node.js runtime stalls due to garbage collection pressure and the event loop becomes unresponsive.
+
+To alleviate these issues the application can be refactored to persist chunk signatures in an external datastore with eviction policies, stream files in bounded batches, or delegate heavy clone expansion work to worker processes that page intermediate state to disk. These strategies bound the in-memory footprint and keep the event loop responsive.
+
+\section*{Reducing Chunk Comparisons}
+Comparing two chunks currently implies \texttt{CHUNKSIZE} per-line equality checks whenever hashes match. The comparison count can be reduced by first filtering candidates via locality-sensitive hashing techniques such as winnowing or Rabin--Karp rolling fingerprints. Maintaining an inverted index keyed by min-hash shingles, or increasing chunk size adaptively for dense matches, further shrinks the candidate set that requires expensive line-by-line validation.
+
+\section*{Timing Trends}
+Timing logs show that per-file processing grows steadily as more files are ingested. Each new chunk probes an expanding catalogue of historical chunks, and clone consolidation walks increasingly long candidate lists. These algorithmic characteristics yield at least linear---and at times super-linear---growth in processing time relative to the number of stored files. Optimisations such as indexed lookups, incremental consolidation, or pruning stale history can flatten this trend.
 
 \end{document}
